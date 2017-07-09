@@ -1,0 +1,20 @@
+---
+title: "Whiskey Data"
+author: "Kevin Wang"
+date: "19/12/2016"
+output:
+  html_document:
+    fig_height: 8
+    fig_width: 8
+    number_sections: yes
+    theme: united
+    toc: yes
+---
+
+
+
+http://blog.revolutionanalytics.com/2013/12/k-means-clustering-86-single-malt-scotch-whiskies.html
+
+http://www.nanigans.com/2014/03/20/better-whisky-drinking-through-data-science/
+https://www.whiskystats.net/collection-detail/?collection_id=1728
+https://github.com/storrgie/scotchit

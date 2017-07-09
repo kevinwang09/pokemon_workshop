@@ -1,0 +1,283 @@
+---
+title: "Pokemons"
+author: "Kevin Wang"
+date: "9 June 2017"
+output:
+  ioslides_presentation:
+    fig_height: 6
+    fig_width: 6
+    incremental: yes
+    self_contained: yes
+    widescreen: yes
+always_allow_html: yes
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+opts_chunk$set(comment=NA, warning=FALSE, message=FALSE)
+library(tidyverse)
+
+options(tibble.print_max = 10, tibble.print_min = 5)
+```
+
+<style>
+slides > slide { overflow: scroll; }
+slides > slide:not(.nobackground):after {
+  content: '';
+}
+</style>
+
+# S0: Prior to lecture
+
+## Preparing for this lecture {.build}
+
++ All materials are on https://github.com/kevinwang09/pokemon_workshop.
+
++ Data was obtained from https://www.kaggle.com/alopez247/pokemon.
+
++ Please run these codes on your laptop prior to the lecture. 
+
+```{r, eval = F}
+install.packages("tidyverse") ## Might be a while...
+install.packages("janitor")
+```
+
+
+# Reading in data
+
+## Reading in data {.build}
+
++ Older way of reading data: `read.csv`, `read.delim`, ... 
+
++ Mordernised data reading: 
+
+    - `readr`: `read_csv`, `read_delim`, better handling of variable types.
+    - `readxl`: `read_excel`, better handling of JavaScripts.
+    - `haven`: `read_sas()`, reading SPSS, Stata and SAS files from R 
+
+```{r readingPokemon}
+rawDat = read_csv("pokemon_alopez247.csv")
+```
+
+
+# Clean Coding
+
+## Piping
+
+
+
+
+```{r piping}
+rawDat %>% summary
+# rawDat %>% View
+```
+
+
+# Clean data
+
+## Basic variable cleaning using *janitor*
+
+```{r janitor}
+library(janitor)
+varCleanData = rawDat %>% clean_names
+# varCleanData %>% View
+```
+
+
+## Basic variable treatments using *dplyr*
+
+```{r dplyr_mutate}
+library(dplyr)
+glimpse(varCleanData)
+
+cleanData = varCleanData %>% 
+  mutate(islegendary = as.logical(islegendary),
+         hasgender = ifelse(hasgender == "True", TRUE, FALSE),
+         hasmegaevolution = case_when(
+           hasmegaevolution == "True" ~ TRUE,
+           hasmegaevolution == "False" ~ FALSE),
+         generation = as.factor(generation)
+         )
+```
+
+
+
+```{r dplyr_rename}
+library(dplyr)
+glimpse(cleanData)
+
+cleanData = cleanData %>% 
+  dplyr::rename(
+    special_attack = sp_atk,
+    special_defense = sp_def,
+    height = height_m,
+    weight = weight_kg
+  )
+
+glimpse(cleanData)
+
+write_csv(cleanData, path = "pokemon_cleanData.csv")
+```
+
+
+# `dplyr`: data manipulator
+
+## *filter* is for row, *select* is for column
+
+```{r filter}
+cleanData = read_csv("pokemon_cleanData.csv")
+
+gen1Legends = cleanData %>% 
+  filter(generation == 1,
+         islegendary)
+
+glimpse(gen1Legends)
+```
+
+
+
+```{r select}
+basicStats = cleanData %>% 
+  dplyr::select(name,
+                hp:speed,
+                contains("type"))
+basicStats
+```
+
+
+
+
+
+## *group_by* + *summarise*
+
+```{r groupSummarise}
+groupType1 = cleanData %>% 
+  group_by(type_1)
+  
+groupType1
+
+groupType1 %>% 
+  dplyr::summarise(medianAttack = median(attack))
+```
+
+
+## *select_if*
+
+```{r select_if}
+intVarsOnly = cleanData %>% 
+  select_if(.predicate = is.integer)
+
+intVarsOnly
+```
+
+```{r select_if num}
+numFunction = function(x){is.integer(x)|is.numeric(x)}
+
+numVarsOnly = cleanData %>% 
+  select_if(.predicate = numFunction) %>% 
+  remove_missing()
+
+numVarsOnly
+```
+
+
+
+# A quick statistics break
+
+## Correlation
+
+```{r}
+library(d3heatmap)
+
+
+d3heatmap(cor(numVarsOnly), 
+          colors = c("blue", "white", "red"))
+
+## Even better colours.
+# goodColours = RColorBrewer::brewer.pal(n = 9, name = "Spectral") %>% rev
+```
+
+
+## PCA {.build}
+
++ PCA is a dimension reduction method. It essentially projects a high dimensional data into a lower dimension subspace.
+
++ The projection is such that the new data: 
+
+    - Preserves the data size ($n$ rows times $p$ columns).
+    - Each column is uncorrelated to each other, and;
+    - They are linear combination of the original columns.
+
++ In short, PCA is a very powerful technique that transform the data into a lower, more interpretable dimension while preserving the correlation structures. 
+
++ We will PCA on the numerical data matrix. 
+
+
+```{r pcaPlot}
+pcaData = numVarsOnly %>% select(-number)
+pcaObj = prcomp(pcaData, scale. = T)
+ggbiplot::ggbiplot(pcaObj)
+
+# ggbiplot::ggbiplot
+```
+
+
+
+
+# `ggplot2`: the best data visualisation package
+
+## *ggplot* only allows plotting using `data.frame`
+
+```{r ggplot_PCA}
+pcaPlotdf = data.frame(numVarsOnly,
+                       pcaObj$x[,1:2]) %>% 
+  as.tibble
+
+pcaPlotdf
+```
+
+
+## *ggplot* example
+
+```{r ggplot_eg1}
+ggplot(data = pcaPlotdf,
+       aes(x = PC1, 
+           y = PC2,
+           colour = total)) + 
+  geom_point()
+```
+
+
+
+```{r ggplot_eg2}
+ggplot(data = pcaPlotdf,
+       aes(x = PC1, 
+           y = PC2,
+           colour = total,
+           size = weight
+           )) +
+  geom_point(alpha = 0.5) +
+  theme_bw()
+```
+
+
+
+# Advanced topics
+
+## data merging: *dplyr::left_join*
+```{r left_join}
+visData = left_join(x = pcaPlotdf,
+                    y = cleanData)
+
+glimpse(visData)
+
+ggplot(data = visData,
+       aes(x = PC1, 
+           y = PC2,
+           size = total,
+           colour = islegendary
+           )) +
+  geom_point(shape = 1, stroke = 1.2) +
+  theme_bw()
+```
+
