@@ -62,20 +62,27 @@ rawDat = read_csv("pokemon_alopez247.csv")
 
 # Clean Coding
 
-## Piping
+## Piping {.build}
 
++ The "inside out" structure of coding isn't great for human reading.
 
++ We introduce a new notation: " x %>% f " means "f(x)". We call this operation as "x pipe f".
 
++ We now read code from left to right.
+
++ Keyboard shortcut is Cmd+shift+M.
 
 ```{r piping}
 rawDat %>% summary
-# rawDat %>% View
+## summary(rawDat)
 ```
 
 
 # Clean data
 
-## Basic variable cleaning using *janitor*
+## Basic variable cleaning using *janitor* {.build}
+
++ Clean up the bad column names.
 
 ```{r janitor}
 library(janitor)
@@ -83,8 +90,17 @@ varCleanData = rawDat %>% clean_names
 # varCleanData %>% View
 ```
 
++ There are also other cleaning functions and tabular functions. 
 
-## Basic variable treatments using *dplyr*
+```{r janitor2}
+tabyl(rawDat$Generation)
+```
+
+
+
+## Basic variable treatments using *dplyr* {.build}
+
++ `mutate` create new columns
 
 ```{r dplyr_mutate}
 library(dplyr)
@@ -101,6 +117,7 @@ cleanData = varCleanData %>%
 ```
 
 
++ `rename` change column names
 
 ```{r dplyr_rename}
 library(dplyr)
@@ -120,9 +137,11 @@ write_csv(cleanData, path = "pokemon_cleanData.csv")
 ```
 
 
+
+
 # `dplyr`: data manipulator
 
-## *filter* is for row, *select* is for column
+## *filter* is for row, *select* is for column  {.build}
 
 ```{r filter}
 cleanData = read_csv("pokemon_cleanData.csv")
@@ -147,8 +166,7 @@ basicStats
 
 
 
-
-## *group_by* + *summarise*
+## Summary statistics using *group_by* + *summarise* {.build}
 
 ```{r groupSummarise}
 groupType1 = cleanData %>% 
@@ -161,7 +179,7 @@ groupType1 %>%
 ```
 
 
-## *select_if*
+## Super selection using *select_if*  {.build}
 
 ```{r select_if}
 intVarsOnly = cleanData %>% 
@@ -182,11 +200,11 @@ numVarsOnly
 
 
 
-# A quick statistics break
+# Time for some statistics
 
 ## Correlation
 
-```{r}
+```{r d3heatmap}
 library(d3heatmap)
 
 
@@ -198,17 +216,18 @@ d3heatmap(cor(numVarsOnly),
 ```
 
 
-## PCA {.build}
+## Principal Component Analysis {.build}
 
-+ PCA is a dimension reduction method. It essentially projects a high dimensional data into a lower dimension subspace.
++ PCA is a dimension reduction method. It "projects" a high dimensional data into a lower dimension subspace.
 
 + The projection is such that the new data: 
 
     - Preserves the data size ($n$ rows times $p$ columns).
-    - Each column is uncorrelated to each other, and;
+    - Each column is **uncorrelated** to each other, but;
     - They are linear combination of the original columns.
+    - The correlation structure of the original data is preserved.
 
-+ In short, PCA is a very powerful technique that transform the data into a lower, more interpretable dimension while preserving the correlation structures. 
++ In short, PCA is a very powerful technique that transform the data into a lower, more interpretable/visualisable dimension. 
 
 + We will PCA on the numerical data matrix. 
 
@@ -226,7 +245,7 @@ ggbiplot::ggbiplot(pcaObj)
 
 # `ggplot2`: the best data visualisation package
 
-## *ggplot* only allows plotting using `data.frame`
+## *ggplot* only allows plotting using `data.frame` {.build}
 
 ```{r ggplot_PCA}
 pcaPlotdf = data.frame(numVarsOnly,
@@ -237,7 +256,11 @@ pcaPlotdf
 ```
 
 
-## *ggplot* example
+## *ggplot* example {.build}
+
++ See tutorial sheet.
+
++ Every characteristic (e.g. axes, colour, size) of your graph is a column in a `data.frame`. i.e. you can't plot vector `x` in line 1 and vector `newx` in line 100. 
 
 ```{r ggplot_eg1}
 ggplot(data = pcaPlotdf,
@@ -264,7 +287,12 @@ ggplot(data = pcaPlotdf,
 
 # Advanced topics
 
-## data merging: *dplyr::left_join*
+## data merging: *dplyr::left_join* {.build}
+
++ Data integration is very easy to mess up. 
+
++ `dplyr` offers several ways of doing this: `left_join`, `right_join`, `inner_join`, `full_join`, ... etc. 
+
 ```{r left_join}
 visData = left_join(x = pcaPlotdf,
                     y = cleanData)
@@ -280,4 +308,33 @@ ggplot(data = visData,
   geom_point(shape = 1, stroke = 1.2) +
   theme_bw()
 ```
+
+
+
+## *ggplot2* extension packages {.build}
+
+```{r pokemonPlotdf}
+library(ggimage)
+pokemonPlotdf = visData %>% 
+  filter(generation == 1) %>% ## Higher generations are not supported. 
+  mutate(image = ifelse(PC1 > 3 | PC2 < -3, tolower(name), NA))
+
+
+pokemonPlotdf %>% 
+  ggplot(aes(x = PC1, y = PC2)) + 
+  geom_point(shape = 1) +
+  geom_pokemon(aes(image = image)) +
+  theme_bw()
+```
+
+
+
+# References
+
+## References
+
+```{r sessionInfo}
+sessionInfo()
+```
+
 
