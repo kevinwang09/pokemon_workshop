@@ -42,6 +42,11 @@ install.packages("tidyverse") ## Might be a while...
 install.packages("janitor")
 ```
 
+```{r}
+library(tidyverse)
+library(dplyr)
+```
+
 
 # Reading in data
 
@@ -78,9 +83,8 @@ rawDat %>% summary
 ```
 
 
-# Clean data
 
-## Basic variable cleaning using *janitor* {.build}
+# `janitor`: basic cleaning {.build}
 
 + Clean up the bad column names.
 
@@ -96,11 +100,9 @@ varCleanData = rawDat %>% clean_names
 tabyl(rawDat$Generation)
 ```
 
+# `dplyr`: data manipulator
 
-
-## Basic variable treatments using *dplyr* {.build}
-
-+ `mutate` create new columns
+## *mutate* create new columns {.build}
 
 ```{r dplyr_mutate}
 library(dplyr)
@@ -117,10 +119,9 @@ cleanData = varCleanData %>%
 ```
 
 
-+ `rename` change column names
+## *rename* change column names {.build}
 
 ```{r dplyr_rename}
-library(dplyr)
 glimpse(cleanData)
 
 cleanData = cleanData %>% 
@@ -138,34 +139,6 @@ write_csv(cleanData, path = "pokemon_cleanData.csv")
 
 
 
-
-# `dplyr`: data manipulator
-
-## *filter* is for row, *select* is for column  {.build}
-
-```{r filter}
-cleanData = read_csv("pokemon_cleanData.csv")
-
-gen1Legends = cleanData %>% 
-  filter(generation == 1,
-         islegendary)
-
-glimpse(gen1Legends)
-```
-
-
-
-```{r select}
-basicStats = cleanData %>% 
-  dplyr::select(name,
-                hp:speed,
-                contains("type"))
-basicStats
-```
-
-
-
-
 ## Summary statistics using *group_by* + *summarise* {.build}
 
 ```{r groupSummarise}
@@ -179,14 +152,88 @@ groupType1 %>%
 ```
 
 
-## Super selection using *select_if*  {.build}
+## *filter* is for row  {.build}
 
-```{r select_if}
-intVarsOnly = cleanData %>% 
-  select_if(.predicate = is.integer)
+```{r filter}
+cleanData = read_csv("pokemon_cleanData.csv")
 
-intVarsOnly
+gen1Legends = cleanData %>% 
+  filter(generation == 1,
+         islegendary)
+
+glimpse(gen1Legends)
 ```
+
+
+
+
+
+
+## *select* is for column {.build}
+```{r select}
+
+basicStats = cleanData %>% 
+  dplyr::select(name,
+                hp:speed,
+                contains("type"))
+basicStats
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# `ggplot2`: data visualisation
+
+## How to inform? {.build}
+```{r}
+library(forcats)
+typePlotdf = basicStats %>%
+  gather(key = typeKey,
+         value = type,
+         type_1,type_2) %>% 
+  select(-typeKey) %>% 
+  mutate(type = fct_reorder(type, attack)) %>% 
+  gather(key = statType,
+         value = statValue,
+         hp:speed) %>% 
+  remove_missing()
+
+typePlotdf %>% 
+  group_by(type, statType) %>% 
+  dplyr::summarise(medianStats = median(statValue)) %>% 
+  spread(key = statType,
+         value = medianStats)
+
+
+typePlotdf %>% 
+  ggplot(aes(x = type, y = statValue)) +
+  geom_jitter(alpha = 0.2) +
+  geom_boxplot(width = 0.2) + 
+  facet_wrap(~statType)
+```
+
+
+
+
+
+
+# Advanced `dplyr`
+
+## Advanced selection using *select_if*  {.build}
 
 ```{r select_if num}
 numFunction = function(x){is.integer(x)|is.numeric(x)}
@@ -200,9 +247,10 @@ numVarsOnly
 
 
 
+
 # Time for some statistics
 
-## Correlation
+## Correlation {.build}
 
 ```{r d3heatmap}
 library(d3heatmap)
@@ -214,6 +262,8 @@ d3heatmap(cor(numVarsOnly),
 ## Even better colours.
 # goodColours = RColorBrewer::brewer.pal(n = 9, name = "Spectral") %>% rev
 ```
+
+
 
 
 ## Principal Component Analysis {.build}
@@ -232,8 +282,8 @@ d3heatmap(cor(numVarsOnly),
 + We will PCA on the numerical data matrix. 
 
 
-```{r pcaPlot}
-pcaData = numVarsOnly %>% select(-number)
+```{r pcaPlot, eval = F}
+pcaData = numVarsOnly %>% select(-number, -generation)
 pcaObj = prcomp(pcaData, scale. = T)
 ggbiplot::ggbiplot(pcaObj)
 
@@ -243,57 +293,41 @@ ggbiplot::ggbiplot(pcaObj)
 
 
 
-# `ggplot2`: the best data visualisation package
 
-## *ggplot* only allows plotting using `data.frame` {.build}
+## t-sne
+```{r}
+library(Rtsne)
+tsneObj = Rtsne(X = numVarsOnly %>% select(-number, -generation), perplexity = 30)
+tsnePlotdf = data.frame(tsneObj$Y[,1:2],
+                        numVarsOnly) %>% 
+  left_join(cleanData)
 
-```{r ggplot_PCA}
-pcaPlotdf = data.frame(numVarsOnly,
-                       pcaObj$x[,1:2]) %>% 
-  as.tibble
-
-pcaPlotdf
-```
-
-
-## *ggplot* example {.build}
-
-+ See tutorial sheet.
-
-+ Every characteristic (e.g. axes, colour, size) of your graph is a column in a `data.frame`. i.e. you can't plot vector `x` in line 1 and vector `newx` in line 100. 
-
-```{r ggplot_eg1}
-ggplot(data = pcaPlotdf,
-       aes(x = PC1, 
-           y = PC2,
-           colour = total)) + 
-  geom_point()
+ggplot(tsnePlotdf) +
+  geom_point(aes(x = X1, y = X2, 
+                 colour = as.factor(generation))) + 
+  theme_bw() + 
+  theme(legend.position = "bottom")
 ```
 
 
 
-```{r ggplot_eg2}
-ggplot(data = pcaPlotdf,
-       aes(x = PC1, 
-           y = PC2,
-           colour = total,
-           size = weight
-           )) +
-  geom_point(alpha = 0.5) +
-  theme_bw()
-```
+
+
+
+
+
+
 
 
 
 # Advanced topics
-
 ## data merging: *dplyr::left_join* {.build}
 
 + Data integration is very easy to mess up. 
 
 + `dplyr` offers several ways of doing this: `left_join`, `right_join`, `inner_join`, `full_join`, ... etc. 
 
-```{r left_join}
+```{r left_join, eval = F}
 visData = left_join(x = pcaPlotdf,
                     y = cleanData)
 
@@ -311,9 +345,9 @@ ggplot(data = visData,
 
 
 
-## *ggplot2* extension packages {.build}
+## *ggimage* {.build}
 
-```{r pokemonPlotdf}
+```{r pokemonPlotdf, eval = F}
 library(ggimage)
 pokemonPlotdf = visData %>% 
   filter(generation == 1) %>% ## Higher generations are not supported. 
@@ -328,13 +362,93 @@ pokemonPlotdf %>%
 ```
 
 
+## ggmap {.build}
 
-# References
+```{r, eval = F, echo = F}
+library(ggmap)
+library(nycflights13)
 
-## References
+us <- c(left = -125, bottom = 25.75, right = -67, top = 49)
+map <- get_stamenmap(us, zoom = 5, maptype = "toner-lite")
 
-```{r sessionInfo}
-sessionInfo()
+
+# ggmap(map) + 
+#   geom_point(aes(x = lon, y = lat), data = airports)
+
+
+redAirports = dplyr::select(airports, faa, lat, lon)
+
+flightsAirports = flights %>% 
+  # filter(origin == "JFK") %>% 
+  dplyr::select(origin, dest) %>% 
+  left_join(redAirports, by = c("origin" = "faa")) %>% 
+  dplyr::rename(lat_ori = lat,
+                lon_ori = lon) %>% 
+  left_join(redAirports, by = c("dest" = "faa")) %>% 
+  dplyr::rename(lat_dest = lat,
+                lon_dest = lon) %>% 
+  group_by(origin, dest) %>%
+  mutate(numFlights = n()) %>%
+  distinct()
+
+
+
+ggmap(map) + 
+  geom_point(aes(x = lon_dest, y = lat_dest), data = flightsAirports) + 
+  geom_curve(aes(x = lon_ori, y = lat_ori, 
+                 xend = lon_dest, yend = lat_dest, 
+                 alpha = numFlights,
+                 size = numFlights,
+                 colour = origin), 
+             data = flightsAirports) +
+  facet_grid(~origin) +
+  coord_cartesian() +
+  scale_size_continuous(range = c(0.1,2)) + 
+  scale_color_brewer(palette = "Set1")
 ```
 
 
+## Type chart
+```{r}
+typeData = read_csv("typeChart.csv") 
+typeNames = tolower(typeData$X1)
+typeData = typeData[,-1] %>% as.data.frame() %>% as.matrix
+colnames(typeData) = rownames(typeData) = typeNames
+
+library(reshape2)
+typeDf = melt(typeData,
+              varnames = c("attack", "defend"),
+              value.name = "effect") %>% 
+  mutate(effect = case_when(
+    is.na(effect) ~ "usual",
+    effect == 0 ~ "noEff",
+    effect == 0.5 ~ "notVeryEff",
+    effect == 2 ~ "veryEff"
+  ))
+
+library(visNetwork)
+
+
+nodes = tibble(id = unique(typeDf$attack),
+               label = id)
+edges = tibble(from = typeDf$attack,
+                   to = typeDf$defend,
+                   label = typeDf$effect,
+                   arrows = "to") %>% 
+  dplyr::filter(label != "usual") %>% 
+  mutate(color = case_when(
+    label == "noEff" ~ "blue",
+    label == "notVeryEff" ~ "purple",
+    label == "veryEff" ~ "red"
+  ))
+
+visNetwork(nodes, edges)
+```
+
+
+
+# References
+## References
+```{r sessionInfo}
+sessionInfo()
+```
